@@ -2,8 +2,9 @@ import express from 'express';
 
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { db } from './db'; 
+import { db } from './db';
 import { sql } from 'drizzle-orm';
+import invoiceRoutes from './routes/invoice.routes'
 dotenv.config();
 
 
@@ -31,9 +32,7 @@ app.get('/api/health', (req, res) => {
   )
 })
 
-app.get('/api/invoices', (req, res) => {
-  res.json({ message: 'Invoices endpoint - coming soon!' });
-});
+
 
 // Test database connection
 app.get('/api/db-test', async (req, res) => {
@@ -54,9 +53,12 @@ app.get('/api/db-test', async (req, res) => {
   }
 });
 
+
+app.get('/api/invoices', invoiceRoutes)
+
 app.listen(PORT, () => {
   console.log(`  Backend API running on http://localhost:${PORT}`);
   console.log(` Health: http://localhost:${PORT}/api/health`);
   console.log(`  DB Test: http://localhost:${PORT}/api/db-test`);
 });
-export  default app;
+export default app;
