@@ -1,6 +1,6 @@
 import express from 'express'
 import { upload } from '../services/upload.service';
-import { db, invoices } from '../db';
+import { db, invoices,companies } from '../db';
 import path from 'path';
 import { eq } from 'drizzle-orm';
 
@@ -16,26 +16,44 @@ router.post('/upload', upload.single('invoice'), async (req, res) => {
         }
         // TODO: For now, we'll use a dummy company_id
         // Later we'll add authentication
-        const companyId = '00000000-0000-0000-0000-000000000000';
+      const testCompanyId = '00000000-0000-0000-0000-000000000000';
+    const [existingCompany] = await db
+      .select()
+      .from(companies)
+      .where(eq(companies.id, testCompanyId));
 
-        const [newInvoice] = await db.insert(invoices).values({
-            companyId,
-            filePath: req.file.path,
-            fileSize: req.file.size,
-            fileType: req.file.mimetype,
-            status: 'pending',
-        }).returning();
+    if (!existingCompany) {
+      // Create test company on the fly
+      await db.insert(companies).values({
+        id: testCompanyId,
+        name: 'Test Company',
+        email: 'test@invoiceshield.com',
+        apiKey: 'test-api-key-12345',
+        tier: 'free',
+        monthlyQuota: 50,
+      });
+      console.log('✅ Created test company');
+    }
 
-        res.json({
-            success: true,
-            message: "Message uploaded successfully",
-            data: {
-                id: newInvoice.id,
-                filename: req.file.filename,
-                size: req.file.size,
-                type: req.file.mimetype,
-            }
-        })
+    // Save invoice record to database
+    const [newInvoice] = await db.insert(invoices).values({
+      companyId: testCompanyId,
+      filePath: req.file.path,
+      fileSize: req.file.size,
+      fileType: req.file.mimetype,
+      status: 'pending',
+    }).returning();
+
+    res.json({
+      success: true,
+      message: 'Invoice uploaded successfully',
+      data: {
+        id: newInvoice.id,
+        filename: req.file.filename,
+        size: req.file.size,
+        type: req.file.mimetype,
+      },
+    });
 
     } catch (error) {
         console.error("Upload error: ", error)

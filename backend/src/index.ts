@@ -54,7 +54,7 @@ app.get('/api/db-test', async (req, res) => {
 });
 
 
-app.get('/api/invoices', invoiceRoutes)
+app.use('/api/invoices', invoiceRoutes)
 
 app.listen(PORT, () => {
   console.log(`  Backend API running on http://localhost:${PORT}`);
