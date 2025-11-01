@@ -1,7 +1,9 @@
 import Tesseract from "tesseract.js";
-import fs from 'fs/promises'
-import pdfParse from 'pdf-parse'
+import fs from 'fs/promises';
 import sharp from "sharp";
+
+const { PDFParse } = require('pdf-parse');
+
 
 
 interface ExtractedData {
@@ -11,19 +13,13 @@ interface ExtractedData {
 
 export class OCRService {
 
-    /**
-   * Main method - extracts text from PDF or image
-   */
-
     async extractText(filePath: string, mimeType: string): Promise<ExtractedData> {
         try {
             if (mimeType === 'application/pdf') {
                 return await this.extractFromPDF(filePath);
-
             }
             else if (mimeType.startsWith('image/')) {
-                return await this.extractFromImage(filePath)
-
+                return await this.extractFromImage(filePath);
             }
             else {
                 throw new Error(`Unsupported file type: ${mimeType}`);
@@ -35,13 +31,14 @@ export class OCRService {
     }
 
     private async extractFromPDF(filePath: string): Promise<ExtractedData> {
-        const pdfParse = require("pdf-parse");
         const dataBuffer = await fs.readFile(filePath);
-        const data = await pdfParse(dataBuffer);
+        const parser = new PDFParse({ data: dataBuffer });
+        const result = await parser.getText();
+
         return {
-            rawText: data.text,
+            rawText: result.text,
             confidence: 95
-        }
+        };
     }
 
     private async extractFromImage(filePath: string): Promise<ExtractedData> {
@@ -51,20 +48,19 @@ export class OCRService {
         const { data } = await Tesseract.recognize(processedPath, 'eng', {
             logger: (m) => {
                 if (m.status === 'recognizing text') {
-                    console.log(`OCR Progress:${Math.round(m.progress * 100)}%`)
+                    console.log(`OCR Progress: ${Math.round(m.progress * 100)}%`);
                 }
             }
-        })
-        await fs.unlink(processedPath).catch(() => { })
+        });
+
+        await fs.unlink(processedPath).catch(() => { });
+
         return {
             rawText: data.text,
             confidence: data.confidence,
         };
     }
 
-    /**
- * Preprocess image for better OCR accuracy
- */
     private async preprocessImage(inputPath: string, outputPath: string): Promise<void> {
         await sharp(inputPath)
             .grayscale()
@@ -72,5 +68,4 @@ export class OCRService {
             .sharpen()
             .toFile(outputPath);
     }
-
 }
