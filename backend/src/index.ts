@@ -4,7 +4,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { db } from './db';
 import { sql } from 'drizzle-orm';
-import invoiceRouter from './routes/invoice.routes'
+import invoiceRoutes from './routes/invoice.routes'
+import vendorRoutes from './routes/vendor.routes'
 dotenv.config();
 
 
@@ -55,7 +56,8 @@ app.get('/api/db-test', async (req, res) => {
 
 console.log('✅ Mounting /api/invoices router...');
 
-app.use('/api/invoices', invoiceRouter)
+app.use('/api/invoices', invoiceRoutes)
+app.use('/api/vendors',vendorRoutes)
 
 app.listen(PORT, () => {
   console.log(`  Backend API running on http://localhost:${PORT}`);
