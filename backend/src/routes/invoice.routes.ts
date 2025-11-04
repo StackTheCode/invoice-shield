@@ -1,19 +1,20 @@
 import express from 'express'
 import { upload } from '../services/upload.service';
 import { db, invoices, companies } from '../db';
-import path from 'path';
 import { eq } from 'drizzle-orm';
 import { OCRService } from '../services/ocr.service';
 import { ParserService } from '../services/parser.service';
-import { date } from 'drizzle-orm/mysql-core';
+import { FraudDetectionService } from './fraud.service';
 
 const router = express.Router()
 const ocrService = new OCRService();
 const parserService = new ParserService();
+const fraudService = new FraudDetectionService();
 
 
-
-
+/**
+ * Function to upload files
+ */
 router.post('/upload', upload.single('invoice'), async (req, res) => {
     try {
         if (!req.file) {
@@ -150,8 +151,8 @@ router.post('/:id/analyze', async (req, res) => {
         const parsedData = parserService.parse(rawText)
         // Update invoice with extracted data
 
-        const processingTime = Date.now() - startTime;
-        const [updatedInvoice] = await db
+
+        await db
             .update(invoices)
             .set({
                 vendorName: parsedData.vendorName,
@@ -164,19 +165,41 @@ router.post('/:id/analyze', async (req, res) => {
                 invoiceDate: parsedData.invoiceDate,
                 dueDate: parsedData.dueDate,
                 ocrConfidence: confidence?.toString(),
+            })
+            .where(eq(invoices.id, id));
+
+
+        console.log("Running fraud detection...")
+
+        const fraudAnalysis = await fraudService.analyzeInvoice(id)
+
+
+
+        const processingTime = Date.now() - startTime;
+        const [updatedInvoice] = await db
+            .update(invoices)
+            .set({
+                riskScore: fraudAnalysis.riskScore,
+                status: fraudAnalysis.status,
+                fraudIndicators: fraudAnalysis.indicators as any,
                 processingTimeMs: processingTime,
-                status: 'analyzed',
                 analyzedAt: new Date(),
             })
             .where(eq(invoices.id, id))
             .returning()
 
-        res.json(
-            {
+        res.json({
+            
                 success: true,
                 message: "invoice analyzed successfuly",
                 data: {
                     invoice: updatedInvoice,
+                    fraudAnalysis: {
+                        riskScore: fraudAnalysis.riskScore,
+                        status: fraudAnalysis.status,
+                        indicators: fraudAnalysis.indicators
+                    },
+                    parsedData,
                     rawText: rawText.substring(0, 500), //Get 500 characters for debbugging ease
                     processingTime: `${processingTime}ms`
                 }
