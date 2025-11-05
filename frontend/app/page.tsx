@@ -1,41 +1,46 @@
-"use client";
-
-
-import { useEffect, useState } from "react";
+import InvoiceUpload from "@/components/InvoiceUpload";
 
 export default function Home() {
-  const [apiStatus, setApiStatus] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/health`)
-      .then(res => res.json())
-      .then(data => {
-        setApiStatus(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error('API connection failed:', err);
-        setLoading(false);
-      });
-  }, []);
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <h1 className="text-4xl font-bold mb-8">🛡️ InvoiceShield</h1>
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12">
+      <div className="container mx-auto px-4">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <h1 className="text-5xl font-bold text-gray-900 mb-4">
+            🛡️ InvoiceShield
+          </h1>
+          <p className="text-xl text-gray-600">
+            AI-powered fraud detection for business invoices
+          </p>
+        </div>
 
-      <div className="border rounded-lg p-6 bg-gray-50">
-        <h2 className="text-xl font-semibold mb-4">Backend Status</h2>
-        {loading ? (
-          <p>Checking API connection...</p>
-        ) : apiStatus ? (
-          <div className="text-green-600">
-            <p>✅ Connected</p>
-            <p className="text-sm text-gray-600">{apiStatus.message}</p>
-            <p className="text-xs text-gray-400">{apiStatus.timestamp}</p>
+        {/* Upload component */}
+        <InvoiceUpload />
+
+        {/* Info cards */}
+        <div className="mt-12 grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <div className="text-3xl mb-2">📄</div>
+            <h3 className="font-semibold mb-2">Upload Invoice</h3>
+            <p className="text-sm text-gray-600">
+              PDF or image files supported
+            </p>
           </div>
-        ) : (
-          <p className="text-red-600">❌ Backend not responding</p>
-        )}
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <div className="text-3xl mb-2">🔍</div>
+            <h3 className="font-semibold mb-2">AI Analysis</h3>
+            <p className="text-sm text-gray-600">
+              OCR + fraud detection in seconds
+            </p>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <div className="text-3xl mb-2">✅</div>
+            <h3 className="font-semibold mb-2">Risk Score</h3>
+            <p className="text-sm text-gray-600">
+              Know if it's safe to pay
+            </p>
+          </div>
+        </div>
       </div>
     </main>
   );
