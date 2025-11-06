@@ -40,7 +40,8 @@ export async function uploadInvoice(file: File) {
 }
 
 export async function analyzeInvoice(id: string) {
-    const response = await fetch(`${API_URL}/invoices/${id}analyze`, {
+    
+    const response = await fetch(`${API_URL}/invoices/${id}/analyze`, {
         method: 'POST',
 
     })

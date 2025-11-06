@@ -1,4 +1,5 @@
 import InvoiceUpload from "@/components/InvoiceUpload";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -6,6 +7,14 @@ export default function Home() {
       <div className="container mx-auto px-4">
         {/* Header */}
         <div className="text-center mb-12">
+          <div className="flex justify-end mb-4">
+            <Link
+              href="/dashboard"
+              className="bg-white text-blue-600 px-6 py-2 rounded-lg hover:bg-gray-50 transition font-semibold shadow"
+            >
+              View Dashboard →
+            </Link>
+          </div>
           <h1 className="text-5xl font-bold text-gray-900 mb-4">
             🛡️ InvoiceShield
           </h1>
