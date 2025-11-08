@@ -1,7 +1,7 @@
 import { db, vendors, invoices } from '../db';
 import { eq, and } from 'drizzle-orm';
 import { ValidationService } from './validation.service';
-
+import { ExternalVerificationService } from './external-verififcation.service';
 interface FraudIndicator {
   type: string;
   severity: 'low' | 'medium' | 'high' | 'critical';
@@ -17,8 +17,10 @@ interface FraudAnalysisResult {
 
 export class FraudDetectionService {
   private validationService: ValidationService;
+  private externalVerification: ExternalVerificationService;
 
   constructor() {
+    this.externalVerification = new ExternalVerificationService()
     this.validationService = new ValidationService();
   }
 
@@ -29,7 +31,7 @@ export class FraudDetectionService {
     const indicators: FraudIndicator[] = [];
     let riskScore = 0;
 
-    
+
     const [invoice] = await db
       .select()
       .from(invoices)
@@ -49,6 +51,9 @@ export class FraudDetectionService {
       this.checkEmailValidity(invoice),
       this.checkDuplicateInvoice(invoice),
       this.checkAmountAnomaly(invoice),
+      this.checkWellKnownCompany(invoice),
+      this.verifyVATWithEU(invoice)
+
     ]);
 
     // Flatten all indicators
@@ -321,4 +326,106 @@ export class FraudDetectionService {
 
     return indicators;
   }
+  async checkWellKnownCompany(invoice: any): Promise<FraudIndicator[]> {
+    const indicators: FraudIndicator[] = [];
+
+    if (!invoice.vendorName) {
+      return indicators;
+    }
+
+    const { isKnown, matchedName } = this.externalVerification.isWellKnownCompany(
+      invoice.vendorName
+
+    )
+
+
+    if (isKnown) {
+      const [vendor] = await db
+        .select()
+        .from(vendors)
+        .where(
+          and(
+            eq(vendors.companyId, invoice.companyId),
+            eq(vendors.name, invoice.vendorName)
+          )
+        )
+
+      if (!vendor) {
+        indicators.push({
+          type: "well_known_company_not_whitelisted",
+          severity: 'high',
+          message: `Invoice claims to be from ${matchedName}, but they are not in our trusted vendors`,
+          details: {
+            claimedCompany: matchedName,
+            suggestion: 'Verify this is a legitimate invoice from this company',
+          }
+        })
+      }
+    }
+    return indicators;
+
+
+  }
+  async verifyVATWithEU(invoice: any): Promise<FraudIndicator[]> {
+    const indicators: FraudIndicator[] = [];
+    if (!invoice.vendorVAT) {
+      return indicators
+    }
+
+    const countryCode = invoice.vendorVat.substring(0, 2)
+    const euCountries = [
+      'AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI',
+      'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT',
+      'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK'
+    ]
+
+    if (!euCountries.includes(countryCode)) {
+      return indicators; // Not EU, skip
+    }
+
+
+    try {
+      const result = await this.externalVerification.verifyEUVAT(invoice.vendorVat);
+
+      if (!result.isValid) {
+
+        indicators.push({
+          type: 'vat_not_registered',
+          severity: 'critical',
+          message: 'VAT number not registered in EU VIES database',
+          details: {
+            vatNumber: invoice.vendorVat,
+            error: result.error,
+          },
+        },
+        )
+
+      } else if (result.companyName) {
+        const invoiceName = invoice.vendorName?.toLowerCase() || '';
+        const officialName = result.companyName.toLowerCase();
+
+        if (!invoiceName.includes(officialName.split(' ')[0])) {
+          indicators.push({
+            type: "company_name_mismatch",
+            severity: 'high',
+            message: "Company doesn't have VAT registration",
+            details: {
+              invoiceName: invoice.vendorName,
+              registeredName: result.companyName,
+            }
+          })
+        }
+
+
+      }
+
+    } catch (error) {
+      console.warn('VAT verification failed:', error);
+
+    }
+
+    return indicators
+  }
+
+
 }

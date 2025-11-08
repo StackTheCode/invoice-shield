@@ -15,6 +15,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Invoice Shield",
   description: "Protect yourself from fake invoices",
+  icons:{
+    icon:'/favicon.ico',
+    shortcut:'/favicon.ico'
+  }
 };
 
 export default function RootLayout({

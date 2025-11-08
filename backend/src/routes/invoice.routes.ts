@@ -4,7 +4,7 @@ import { db, invoices, companies } from '../db';
 import { eq } from 'drizzle-orm';
 import { OCRService } from '../services/ocr.service';
 import { ParserService } from '../services/parser.service';
-import { FraudDetectionService } from './fraud.service';
+import { FraudDetectionService } from '../services/fraud.service';
 
 const router = express.Router()
 const ocrService = new OCRService();
