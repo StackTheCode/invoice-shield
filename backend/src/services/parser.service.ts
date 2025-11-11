@@ -40,7 +40,7 @@ export class ParserService {
    */
   private extractVAT(text: string): string | undefined {
     const patterns = [
-      /(?:VAT|BTW|TVA|Tax|VAT\s*ID)[:\s#]*([A-Z]{2}[0-9A-Z]{8,12})/i,
+   /(?:VAT|BTW|TVA|Tax)(?:\s*(?:No|Number|ID\.))?[:\s#]*([A-Z]{2}[0-9A-Z]{8,12})/i,
       /\b([A-Z]{2}[0-9]{9,11})\b/, // Generic EU VAT format
     ]
 

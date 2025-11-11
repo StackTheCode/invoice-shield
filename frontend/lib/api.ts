@@ -51,7 +51,7 @@ export async function analyzeInvoice(id: string) {
         message: string,
         data: any
     }>(response)
-}
+}  
 
 
 export async function getInvoices() {
