@@ -1,3 +1,4 @@
+// validation service
 export class ValidationService {
 
     /**
@@ -32,6 +33,22 @@ export class ValidationService {
         // Remove spaces and convert to uppercase
         const cleanVAT = vat.replace(/\s/g, '').toUpperCase();
 
+
+
+        if (cleanVAT.startsWith('GB') || cleanVAT.startsWith('XI')) {
+            const ukVatRegex = /^(GB|XI)[0-9]{9}(?:[0-9]{3})?$/;
+
+            if (!ukVatRegex.test(cleanVAT)) {
+                return { isValid: false, message: 'Invalid UK VAT format (should be GB + 9 or 12 digits)' };
+            }
+            return { isValid: true };
+        }
+
+
+
+
+
+
         // EU VAT format: 2 letter country code + 8-12 alphanumeric
         const vatRegex = /^[A-Z]{2}[0-9A-Z]{8,12}$/;
 
@@ -39,11 +56,16 @@ export class ValidationService {
             return { isValid: false, message: 'Invalid VAT number format' };
         }
 
+        if (cleanVAT.length < 10 || cleanVAT.length > 14) {
+            return { isValid: false, message: 'VAT number length is incorrect' };
+
+        }
+
         const countryCode = cleanVAT.substring(0, 2);
         const validCountries = [
             'AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI',
             'FR', 'GB', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV',
-            'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK'
+            'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK', 'XI'
         ];
         if (!validCountries.includes(countryCode)) {
             return { isValid: false, message: `Unknown country code: ${countryCode}` };
@@ -51,6 +73,9 @@ export class ValidationService {
 
         return { isValid: true };
     }
+
+
+
 
     /**
    * Validate email format

@@ -1,3 +1,4 @@
+// parser.service
 interface ParsedInvoiceData {
   vendorName?: string;
   vatNumber?: string;
@@ -40,19 +41,66 @@ export class ParserService {
    */
   private extractVAT(text: string): string | undefined {
     const patterns = [
-   /(?:VAT|BTW|TVA|Tax)(?:\s*(?:No|Number|ID\.))?[:\s#]*([A-Z]{2}[0-9A-Z]{8,12})/i,
-      /\b([A-Z]{2}[0-9]{9,11})\b/, // Generic EU VAT format
+      // VAT with label (VAT, VAT No, VAT Number, VAT ID, etc.)
+      /(?:VAT|BTW|TVA|Tax|VAT\s*No|VAT\s*Number|VAT\s*ID)\.?[:\s#]*([A-Z]{2}[0-9A-Z]{8,12})/i,
+      // Just "VAT" followed by number(your issue)
+      /\bVAT\s*[:.] ?\s*([A-Z]{2}[0-9A-Z]{8,12})/i,
+
+      // UK VAT format (GB followed by 9 or 12 digits)
+      /\b(GB[0-9]{9}(?:[0-9]{3})?)\b/i,
+
+      // VAT with spaces (IE 8256796U)
+      /(?:VAT|BTW|TVA)[:\s]+([A-Z]{2}\s?[0-9]{7,10}\s?[A-Z]?)/i,
+
+
+      // Generic EU VAT format
+      /\b([A-Z]{2}[0-9A-Z][0-9A-Z\s\-\.]{5,12})\b/,
     ]
 
     for (const pattern of patterns) {
       const match = text.match(pattern);
       if (match) {
-        return match[1].replace(/\s/g, '').toUpperCase();
+
+        let vat = match[1].replace(/\s/g, '').toUpperCase();
+        if (this.isValidVATFormat(vat)) {
+          return vat;
+        }
 
       }
     }
     return undefined;
   }
+
+
+
+  private isValidVATFormat(vat: string): boolean {
+
+    // UK VAT: GB followed by 9 or 12 digits
+    if (/^GB[0-9]{9}(?:[0-9]{3})?$/.test(vat)) {
+      return true;
+    }
+
+    // EU VAT: 2 letters + 8-12 alphanumeric
+    if (/^[A-Z]{2}[0-9A-Z]{8,12}$/.test(vat)) {
+      const countryCode = vat.substring(0, 2);
+
+      const validCountries = [
+        // EU
+        'AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI',
+        'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT',
+        'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK',
+        // UK (post-Brexit but still uses VAT)
+        'GB', 'XI', // XI is Northern Ireland
+      ];
+      return validCountries.includes(countryCode)
+    }
+
+    return false;
+  }
+
+
+
+
 
   private extractIBAN(text: string): string | undefined {
     const pattern = /\b([A-Z]{2}[0-9]{2}[A-Z0-9]{1,30})\b/g;

@@ -52,7 +52,8 @@ export class FraudDetectionService {
       this.checkDuplicateInvoice(invoice),
       this.checkAmountAnomaly(invoice),
       this.checkWellKnownCompany(invoice),
-      this.verifyVATWithEU(invoice)
+      this.verifyVATWithEU(invoice),
+      this.checkIBANCountryMatch(invoice)
 
     ]);
 
@@ -97,37 +98,76 @@ export class FraudDetectionService {
   private async checkVendorWhitelist(invoice: any): Promise<FraudIndicator[]> {
     const indicators: FraudIndicator[] = [];
 
-    if (!invoice.vendorVat) {
+    if (!invoice.vendorVat && !invoice.vendorName) {
       indicators.push({
-        type: 'missing_vat',
+        type: 'missing_vendor_info',
         severity: 'medium',
-        message: 'VAT number not found in invoice',
+        message: 'Vendor information is incomplete',
       });
       return indicators;
     }
 
-    // Look for vendor in whitelist by VAT
-    const [vendor] = await db
-      .select()
-      .from(vendors)
-      .where(
-        and(
-          eq(vendors.companyId, invoice.companyId),
-          eq(vendors.vatNumber, invoice.vendorVat)
-        )
-      );
+    // Try to find vendor by VAT number (most reliable)
+    if (invoice.vendorVat) {
+      const [vendorByVAT] = await db
+        .select()
+        .from(vendors)
+        .where(
+          and(
+            eq(vendors.companyId, invoice.companyId),
+            eq(vendors.vatNumber, invoice.vendorVat)
+          )
+        );
 
-    if (!vendor) {
-      indicators.push({
-        type: 'unknown_vendor',
-        severity: 'high',
-        message: 'Vendor not in trusted whitelist',
-        details: { vendorVat: invoice.vendorVat },
-      });
-      return indicators;
+      if (vendorByVAT) {
+        // Found by VAT - check IBAN and email
+        return this.checkVendorDetails(invoice, vendorByVAT);
+      }
     }
 
-    // Vendor found - check if IBAN matches
+    // Try to find by name (fuzzy match)
+    if (invoice.vendorName) {
+      const allVendors = await db
+        .select()
+        .from(vendors)
+        .where(eq(vendors.companyId, invoice.companyId));
+
+      // Check for partial name match
+      const invoiceNameLower = invoice.vendorName.toLowerCase();
+      const matchedVendor = allVendors.find(v => {
+        const vendorNameLower = v.name.toLowerCase();
+        // Check if names overlap significantly
+        return (
+          invoiceNameLower.includes(vendorNameLower) ||
+          vendorNameLower.includes(invoiceNameLower) ||
+          this.calculateSimilarity(invoiceNameLower, vendorNameLower) > 0.7
+        );
+      });
+
+      if (matchedVendor) {
+        return this.checkVendorDetails(invoice, matchedVendor);
+      }
+    }
+
+    // Not found in whitelist
+    indicators.push({
+      type: 'unknown_vendor',
+      severity: 'high',
+      message: 'Vendor not in trusted whitelist',
+      details: {
+        vendorName: invoice.vendorName,
+        vendorVat: invoice.vendorVat
+      },
+    });
+
+    return indicators;
+  }
+
+
+  private checkVendorDetails(invoice: any, vendor: any): FraudIndicator[] {
+    const indicators: FraudIndicator[] = [];
+
+    // Check IBAN match
     if (vendor.iban && invoice.vendorIban) {
       const cleanVendorIBAN = vendor.iban.replace(/\s/g, '').toUpperCase();
       const cleanInvoiceIBAN = invoice.vendorIban.replace(/\s/g, '').toUpperCase();
@@ -145,9 +185,12 @@ export class FraudDetectionService {
       }
     }
 
-    // Check if email matches
+    // Check email match
     if (vendor.email && invoice.vendorEmail) {
-      if (vendor.email.toLowerCase() !== invoice.vendorEmail.toLowerCase()) {
+      const vendorEmailLower = vendor.email.toLowerCase();
+      const invoiceEmailLower = invoice.vendorEmail.toLowerCase();
+
+      if (vendorEmailLower !== invoiceEmailLower) {
         indicators.push({
           type: 'email_mismatch',
           severity: 'high',
@@ -163,6 +206,49 @@ export class FraudDetectionService {
     return indicators;
   }
 
+  /**
+   * Helper: Calculate string similarity (Levenshtein-like)
+   */
+  private calculateSimilarity(str1: string, str2: string): number {
+    const longer = str1.length > str2.length ? str1 : str2;
+    const shorter = str1.length > str2.length ? str2 : str1;
+
+    if (longer.length === 0) return 1.0;
+
+    const editDistance = this.levenshteinDistance(longer, shorter);
+    return (longer.length - editDistance) / longer.length;
+  }
+
+  /**
+   * Helper: Levenshtein distance for string comparison
+   */
+  private levenshteinDistance(str1: string, str2: string): number {
+    const matrix: number[][] = [];
+
+    for (let i = 0; i <= str2.length; i++) {
+      matrix[i] = [i];
+    }
+
+    for (let j = 0; j <= str1.length; j++) {
+      matrix[0][j] = j;
+    }
+
+    for (let i = 1; i <= str2.length; i++) {
+      for (let j = 1; j <= str1.length; j++) {
+        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1
+          );
+        }
+      }
+    }
+
+    return matrix[str2.length][str1.length];
+  }
   /**
    * Validate IBAN format
    */
@@ -186,6 +272,46 @@ export class FraudDetectionService {
         severity: 'high',
         message: validation.message || 'Invalid IBAN format',
         details: { iban: invoice.vendorIban },
+      });
+    }
+
+    return indicators;
+  }
+
+  /**
+ * Check IBAN country matches VAT country
+ */
+  private async checkIBANCountryMatch(invoice: any): Promise<FraudIndicator[]> {
+    const indicators: FraudIndicator[] = [];
+
+    if (!invoice.vendorIban || !invoice.vendorVat) {
+      return indicators;
+    }
+
+    const ibanCountry = invoice.vendorIban.substring(0, 2);
+    const vatCountry = invoice.vendorVat.substring(0, 2);
+
+    // Allow some exceptions (e.g., IE companies often use UK IBANs)
+    const allowedMismatches = [
+      ['IE', 'GB'], // Irish companies with UK banks
+      ['BE', 'NL'], // Belgian companies with Dutch banks
+    ];
+
+    const isAllowedMismatch = allowedMismatches.some(
+      ([country1, country2]) =>
+        (ibanCountry === country1 && vatCountry === country2) ||
+        (ibanCountry === country2 && vatCountry === country1)
+    );
+
+    if (ibanCountry !== vatCountry && !isAllowedMismatch) {
+      indicators.push({
+        type: 'iban_country_mismatch',
+        severity: 'medium',
+        message: `IBAN country (${ibanCountry}) doesn't match VAT country (${vatCountry})`,
+        details: {
+          ibanCountry,
+          vatCountry,
+        },
       });
     }
 
@@ -326,7 +452,11 @@ export class FraudDetectionService {
 
     return indicators;
   }
-  async checkWellKnownCompany(invoice: any): Promise<FraudIndicator[]> {
+
+  /**
+ * Check if company is a well-known corporation
+ */
+  private async checkWellKnownCompany(invoice: any): Promise<FraudIndicator[]> {
     const indicators: FraudIndicator[] = [];
 
     if (!invoice.vendorName) {
@@ -335,40 +465,62 @@ export class FraudDetectionService {
 
     const { isKnown, matchedName } = this.externalVerification.isWellKnownCompany(
       invoice.vendorName
-
-    )
-
+    );
 
     if (isKnown) {
-      const [vendor] = await db
-        .select()
-        .from(vendors)
-        .where(
-          and(
-            eq(vendors.companyId, invoice.companyId),
-            eq(vendors.name, invoice.vendorName)
-          )
-        )
+      // Check if they're in whitelist (by VAT or name)
+      let vendorFound = false;
 
-      if (!vendor) {
+      if (invoice.vendorVat) {
+        const [vendorByVAT] = await db
+          .select()
+          .from(vendors)
+          .where(
+            and(
+              eq(vendors.companyId, invoice.companyId),
+              eq(vendors.vatNumber, invoice.vendorVat)
+            )
+          );
+
+        if (vendorByVAT) vendorFound = true;
+      }
+
+      if (!vendorFound) {
+        // Check by name (fuzzy)
+        const allVendors = await db
+          .select()
+          .from(vendors)
+          .where(eq(vendors.companyId, invoice.companyId));
+
+        const nameMatch = allVendors.find(v =>
+          v.name.toLowerCase().includes(matchedName!) ||
+          matchedName!.includes(v.name.toLowerCase())
+        );
+
+        if (nameMatch) vendorFound = true;
+      }
+
+      if (!vendorFound) {
         indicators.push({
-          type: "well_known_company_not_whitelisted",
-          severity: 'high',
-          message: `Invoice claims to be from ${matchedName}, but they are not in our trusted vendors`,
+          type: 'well_known_company_not_whitelisted',
+          severity: 'medium',  // Changed from 'high' to 'medium'
+          message: `Invoice claims to be from ${matchedName}, but they're not in your trusted vendors`,
           details: {
             claimedCompany: matchedName,
-            suggestion: 'Verify this is a legitimate invoice from this company',
-          }
-        })
+            suggestion: 'Add this vendor to whitelist if legitimate',
+          },
+        });
       }
     }
+
     return indicators;
-
-
   }
+
+
+
   async verifyVATWithEU(invoice: any): Promise<FraudIndicator[]> {
     const indicators: FraudIndicator[] = [];
-    if (!invoice.vendorVAT) {
+    if (!invoice.vendorVat) {
       return indicators
     }
 

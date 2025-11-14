@@ -17,6 +17,46 @@ interface CompanySearchResult {
 }
 
 export class ExternalVerificationService {
+    // UK gov api 
+    async verifyUKVAT(vatNumber: string): Promise<VATVerfication> {
+        try {
+            // Clean VAT number - remove GB prefix for API
+            const cleanVAT = vatNumber.replace(/\s/g, '').toUpperCase();
+            const vatNum = cleanVAT.startsWith('GB') ? cleanVAT.substring(2) : cleanVAT;
+
+            // UK HMRC VAT API endpoint (free, no auth required for basic checks)
+            // Note: This is a simplified check. Real HMRC API requires OAuth.
+            // For demo purposes, we'll validate format only
+
+            const ukVatRegex = /^[0-9]{9}(?:[0-9]{3})?$/;
+
+            if (!ukVatRegex.test(vatNum)) {
+                return {
+                    isValid: false,
+                    error: 'Invalid UK VAT format',
+                };
+            }
+
+            // TODO: In production, integrate with HMRC API
+            // https://developer.service.hmrc.gov.uk/api-documentation/docs/api/service/vat-registered-companies-api
+
+            return {
+                isValid: true,
+                countryCode: 'GB',
+                // Note: Real company name would come from HMRC API
+            };
+
+        } catch (error) {
+            console.error('UK VAT verification error:', error);
+            return {
+                isValid: false,
+                error: 'Failed to verify UK VAT number',
+            };
+        }
+    }
+
+
+
     async verifyEUVAT(vatNumber: string): Promise<VATVerfication> {
         try {
             const cleanVAT = vatNumber.replace(/\s/g, '').toUpperCase();
@@ -49,6 +89,19 @@ export class ExternalVerificationService {
                 error: 'Failed to verify VAT number (API unavailable)',
             };
         }
+    }
+
+
+    async verifyVATNumber(vatNumber: string): Promise<VATVerfication> {
+        const cleanVAT = vatNumber.replace(/\s/g, '').toUpperCase();
+
+        // Check if UK VAT
+        if (cleanVAT.startsWith('GB') || cleanVAT.startsWith('XI')) {
+            return this.verifyUKVAT(cleanVAT);
+        }
+
+        // Otherwise use EU VIES
+        return this.verifyEUVAT(cleanVAT);
     }
 
     async searchCompanyByName(companyName: string, country?: string): Promise<CompanySearchResult> {
@@ -103,33 +156,33 @@ export class ExternalVerificationService {
 
     }
 
-    isWellKnownCompany(name:string):{isKnown:boolean; matchedName?:string}{
+    isWellKnownCompany(name: string): { isKnown: boolean; matchedName?: string } {
         const wellKnownCompanies = [
-      // Tech giants
-      'microsoft', 'apple', 'google', 'amazon', 'meta', 'facebook',
-      'netflix', 'adobe', 'oracle', 'salesforce', 'ibm', 'intel',
-      'cisco', 'nvidia', 'amd', 'dell', 'hp', 'lenovo',
-      
-      // Cloud providers
-      'aws', 'amazon web services', 'azure', 'google cloud',
-      
-      // Payment processors
-      'stripe', 'paypal', 'square', 'visa', 'mastercard',
-      
-      // Software/SaaS
-      'slack', 'zoom', 'dropbox', 'atlassian', 'jira', 'github',
-      'gitlab', 'docker', 'mongodb', 'redis', 'cloudflare',
-      
-      // Enterprise
-      'sap', 'accenture', 'deloitte', 'pwc', 'kpmg', 'ey',
-    ];
-    const lowerName = name.toLowerCase();
+            // Tech giants
+            'microsoft', 'apple', 'google', 'amazon', 'meta', 'facebook',
+            'netflix', 'adobe', 'oracle', 'salesforce', 'ibm', 'intel',
+            'cisco', 'nvidia', 'amd', 'dell', 'hp', 'lenovo',
 
-    for (const known of wellKnownCompanies){
-        if(lowerName.includes(known)){
-            return {isKnown:true,matchedName:known}
+            // Cloud providers
+            'aws', 'amazon web services', 'azure', 'google cloud',
+
+            // Payment processors
+            'stripe', 'paypal', 'square', 'visa', 'mastercard',
+
+            // Software/SaaS
+            'slack', 'zoom', 'dropbox', 'atlassian', 'jira', 'github',
+            'gitlab', 'docker', 'mongodb', 'redis', 'cloudflare',
+
+            // Enterprise
+            'sap', 'accenture', 'deloitte', 'pwc', 'kpmg', 'ey',
+        ];
+        const lowerName = name.toLowerCase();
+
+        for (const known of wellKnownCompanies) {
+            if (lowerName.includes(known)) {
+                return { isKnown: true, matchedName: known }
+            }
         }
-    }
         return { isKnown: false };
 
     }
