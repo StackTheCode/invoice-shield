@@ -14,7 +14,8 @@ const storage = multer.diskStorage({
 
     },
     filename: (req, file, cb) => {
-        const uniqueName = `${uuidv4()} --${file.originalname}`
+        const cleanName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const uniqueName = `${uuidv4()}_${cleanName}`;
         cb(null, uniqueName)
     }
 })
@@ -37,16 +38,16 @@ const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCa
 
 };
 
-export const upload =multer({
+export const upload = multer({
     storage,
     fileFilter,
-    limits:{
-        fileSize:parseInt(process.env.MAX_FILE_SIZE || "10485760")
+    limits: {
+        fileSize: parseInt(process.env.MAX_FILE_SIZE || "10485760")
     }
 })
 
-export const deleteFile = (filePath:string) : void =>{
-    if(fs.existsSync(filePath)){
+export const deleteFile = (filePath: string): void => {
+    if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath)
     }
 }
