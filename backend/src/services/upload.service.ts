@@ -2,6 +2,7 @@ import multer from "multer";
 import path from 'path'
 import fs from 'fs'
 import { v4 as uuidv4 } from "uuid";
+import type {  FileFilterCallback } from "multer";
 
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads'
@@ -20,7 +21,7 @@ const storage = multer.diskStorage({
     }
 })
 
-const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+const fileFilter = (req: any, file: any, cb: FileFilterCallback) => {
     const allowedTypes = [
         'application/pdf',
         'image/png',
