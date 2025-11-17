@@ -15,7 +15,10 @@ const PORT = process.env.PORT || 3001;
 
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: [
+   'http://localhost:3000',  
+    process.env.FRONTEND_URL || 'https://invoiceshieldprot.vercel.app',
+  ],
   credentials: true,
 }))
 
@@ -54,10 +57,10 @@ app.get('/api/db-test', async (req, res) => {
   }
 });
 
-console.log('✅ Mounting /api/invoices router...');
+console.log(' Mounting /api/invoices router...');
 
 app.use('/api/invoices', invoiceRoutes)
-app.use('/api/vendors',vendorRoutes)
+app.use('/api/vendors', vendorRoutes)
 
 app.listen(PORT, () => {
   console.log(`  Backend API running on http://localhost:${PORT}`);
