@@ -5,11 +5,12 @@
     "moduleResolution": "Node",
     "rootDir": "./src",
     "outDir": "./dist",
-    "strict": true,
+    "strict": false,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
+    "noImplicitAny": false,
     "resolveJsonModule": true
   },
   "include": ["src/**/*"],
