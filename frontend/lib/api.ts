@@ -1,6 +1,6 @@
 import { ApiError } from "next/dist/server/api-utils"
 
-const API_URL = process.env.NEXT_PUBLIC_API ;
+const API_URL = process.env.NEXT_PUBLIC_API_URL ;
 
 export class APiError extends Error {
     constructor(public status: number, message: string) {
