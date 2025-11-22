@@ -6,6 +6,7 @@ import { db } from './db';
 import { sql } from 'drizzle-orm';
 import invoiceRoutes from './routes/invoice.routes'
 import vendorRoutes from './routes/vendor.routes'
+import authRoutes from './routes/auth.routes'
 dotenv.config();
 
 
@@ -59,6 +60,7 @@ app.get('/api/db-test', async (req, res) => {
 
 console.log(' Mounting /api/invoices router...');
 
+app.use('/api/auth', authRoutes);
 app.use('/api/invoices', invoiceRoutes)
 app.use('/api/vendors', vendorRoutes)
 

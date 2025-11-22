@@ -29,3 +29,25 @@ Companies get scammed by fake invoices all the time - someone impersonates a rea
 **Structure:**
 - Monorepo setup with separate frontend/backend
 - Shared TypeScript types between services
+
+**API Routes:**
+
+
+
+
+**Authentication**
+
+| Method | Endpoint           |             Description     |
+|--------|--------------------|-----------------------------|
+| POST   | /api/auth/register | Register new user & company |
+| POST   | /api/auth/login    | Login and get JWT token     |
+| GET    | /api/auth/me       | Get current user info       | 
+
+
+
+| Method | Endpoint                       | Description                | 
+|--------|--------------------------------|----------------------------|
+| POST   | /api/invoices/upload           | Upload invoice (PDF/image) | 
+| POST   | /api/invoices/:id/analyze      | Run OCR + fraud detection  |
+| GET    | /api/invoices                  | List all invoices          | 
+| GET    | /api/invoices/:id              | Get invoice details        |

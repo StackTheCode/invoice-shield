@@ -80,7 +80,7 @@ export class AuthService {
         }
     }
 
-    // TODO login 
+
     async login(input: LoginInput): Promise<AuthResult> {
         try {
             const { email, password } = input;
