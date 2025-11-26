@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm';
 import { OCRService } from '../services/ocr.service';
 import { ParserService } from '../services/parser.service';
 import { FraudDetectionService } from '../services/fraud.service';
-
+import { requireAuth } from '../middleware/auth.middleware';
 const router = express.Router()
 const ocrService = new OCRService();
 const parserService = new ParserService();
@@ -15,7 +15,7 @@ const fraudService = new FraudDetectionService();
 /**
  * Function to upload files
  */
-router.post('/upload', upload.single('invoice'), async (req, res) => {
+router.post('/upload',requireAuth, upload.single('invoice'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({
@@ -25,28 +25,13 @@ router.post('/upload', upload.single('invoice'), async (req, res) => {
         }
         // TODO: For now, we'll use a dummy company_id
         // Later we'll add authentication
-        const testCompanyId = '00000000-0000-0000-0000-000000000000';
-        const [existingCompany] = await db
-            .select()
-            .from(companies)
-            .where(eq(companies.id, testCompanyId));
+        const companyId = req.user!.companyId;
 
-        if (!existingCompany) {
-            // Create test company on the fly
-            await db.insert(companies).values({
-                id: testCompanyId,
-                name: 'Test Company',
-                email: 'test@invoiceshield.com',
-                apiKey: 'test-api-key-12345',
-                tier: 'free',
-                monthlyQuota: 50,
-            });
-            console.log('✅ Created test company');
-        }
+
 
         // Save invoice record to database
         const [newInvoice] = await db.insert(invoices).values({
-            companyId: testCompanyId,
+            companyId: companyId,
             filePath: req.file.path,
             fileSize: req.file.size,
             fileType: req.file.mimetype,
@@ -189,21 +174,21 @@ router.post('/:id/analyze', async (req, res) => {
             .returning()
 
         res.json({
-            
-                success: true,
-                message: "invoice analyzed successfuly",
-                data: {
-                    invoice: updatedInvoice,
-                    fraudAnalysis: {
-                        riskScore: fraudAnalysis.riskScore,
-                        status: fraudAnalysis.status,
-                        indicators: fraudAnalysis.indicators
-                    },
-                    parsedData,
-                    rawText: rawText.substring(0, 500), //Get 500 characters for debbugging ease
-                    processingTime: `${processingTime}ms`
-                }
+
+            success: true,
+            message: "invoice analyzed successfuly",
+            data: {
+                invoice: updatedInvoice,
+                fraudAnalysis: {
+                    riskScore: fraudAnalysis.riskScore,
+                    status: fraudAnalysis.status,
+                    indicators: fraudAnalysis.indicators
+                },
+                parsedData,
+                rawText: rawText.substring(0, 500), //Get 500 characters for debbugging ease
+                processingTime: `${processingTime}ms`
             }
+        }
         )
 
     } catch (error) {

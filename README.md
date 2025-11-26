@@ -44,6 +44,7 @@ Companies get scammed by fake invoices all the time - someone impersonates a rea
 | GET    | /api/auth/me       | Get current user info       | 
 
 
+**Invoices**
 
 | Method | Endpoint                       | Description                | 
 |--------|--------------------------------|----------------------------|

@@ -1,14 +1,14 @@
 import { pgTable, uuid, varchar, timestamp, decimal, integer, boolean, jsonb, text } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users',{
-  id:uuid('id').primaryKey().defaultRandom(),
-  email:varchar( 'email',{length:255}).unique().notNull(),
-  password:varchar('password', {length :255}).notNull(),
-  name:varchar('name',{length:255}),
-  companyId:uuid('company_id').references(() => companies.id),
-  role:varchar('role',{length:50}).default('user'),
-  createdAt:timestamp('created_at').defaultNow(),
-  lastLogin:timestamp('last_login')
+  id: uuid('id').primaryKey().defaultRandom(),
+  email: varchar('email', { length: 255 }).unique().notNull(),
+  password: varchar('password', { length: 255 }).notNull(),
+  name: varchar('name', { length: 255 }),
+  companyId: uuid('company_id').references(() => companies.id),
+  role: varchar('role', { length: 50 }).default('user'), 
+  createdAt: timestamp('created_at').defaultNow(),
+  lastLogin: timestamp('last_login'),
 })
 
 

@@ -1,28 +1,28 @@
 import express from "express";
 import { db, vendors } from "../db";
-import { eq } from "drizzle-orm";
-
+import { eq,and } from "drizzle-orm";
+import { requireAuth } from "../middleware/auth.middleware";
 const router = express.Router();
 
 
-router.post("/", async (req, res) => {
+router.post("/",requireAuth ,async (req, res) => {
     try {
         const { name, vatNumber, iban, email, phone, address } = req.body;
 
-        //     // TODO: Get from authentication later
+        
 
-        const testCompanyId = '00000000-0000-0000-0000-000000000000';
+        const companyId = req.user!.companyId;
 
 
         if (!name) {
             return res.status(400).json({
-                success: true,
+                success: false,
                 message: "Vendor name is required"
             })
 
         }
            const [newVendor] = await db.insert(vendors).values({
-                companyId: testCompanyId,
+                companyId: companyId,
                 name,
                 vatNumber: vatNumber?.toUpperCase(),
                 iban: iban?.replace(/\s/g, '').toUpperCase(),
@@ -49,14 +49,14 @@ router.post("/", async (req, res) => {
 })
 
 
-router.get('/', async (req, res) => {
+router.get('/',requireAuth, async (req, res) => {
     try {
-        const testCompanyId = '00000000-0000-0000-0000-000000000000';
+        const companyId = req.user!.companyId;
 
         const allVendors = await db
             .select()
             .from(vendors)
-            .where(eq(vendors.companyId, testCompanyId))
+            .where(eq(vendors.companyId, companyId))
         res.json({
             success: true,
             data: allVendors
@@ -71,14 +71,19 @@ router.get('/', async (req, res) => {
     }
 })
 
-router.get('/:id', async (req, res) => {
+router.get('/:id',requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
+
+        const companyId = req.user!.companyId;
 
         const [vendor] = await db
             .select()
             .from(vendors)
-            .where(eq(vendors.id, id));
+            .where(and(
+                eq(vendors.id, id),
+              eq(vendors.companyId,companyId)
+            ));
 
         if (!vendor) {
             return res.status(404).json({
@@ -108,10 +113,15 @@ router.get('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
 try{
     const { id } = req.params;
+    const companyId = req.user!.companyId;
 
     const [deleteVendor] = await db
         .delete(vendors)
-        .where(eq(vendors.id, id))
+        .where(
+        and  (  eq(vendors.id, id),
+        eq(vendors.companyId,companyId)
+    )
+        )
         .returning()
 
 

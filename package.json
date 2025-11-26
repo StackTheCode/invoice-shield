@@ -18,5 +18,8 @@
   "dependencies": {
     "drizzle-kit": "^0.18.1",
     "drizzle-orm": "^0.44.6"
+  },
+  "overrides": {
+    "esbuild":"^0.25.4"
   }
 }
