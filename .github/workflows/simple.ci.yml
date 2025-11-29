@@ -1,0 +1,45 @@
+name: Simple CI
+
+on: [push,pull_request]
+
+jobs:
+  test:
+    name: Build&Test
+    runs-on: ubuntu-latest
+
+    steps:
+  # Get the code
+     - name: Checkout code 
+       uses: actions/checkout@v4
+  
+
+  # Setup Node.js
+     - name: Setup Node.js
+       uses: actions/setup-node@v4
+       with:
+       node-version: '20'
+
+
+  #Install dependencies
+     - name: Install backend dependencies
+       working-directory: ./backend
+       run: npm install
+
+     - name: Install frontend dependencies
+       working-directory: ./frontend
+       run: npm Install
+
+# Building and running it 
+     - name: Build backend
+       working-directory: ./backend
+       run: npm run build  || echo " No build script skipping"
+       continue-on-error: true
+
+     - name : Build frontend 
+       working-directory: ./frontend
+       run: npm run build
+
+     - name: Success!
+       run : echo  "CI passed"  
+
+
